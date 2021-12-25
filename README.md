@@ -1,5 +1,7 @@
 # IQ_Research
-That is my research on Vocabulary IQ done in R to find some correlations
+That is my research on Vocabulary IQ done in R to find some correlations between IQ and biography status or random facts.
+
+In order, to see what I have done - check Research directory. The pdf version is the best displayable.
 
 ## Data description
 This data was collected on-line through an interactive test titled "Vocabulary IQ Test" between July 2017 and March 2018. 
