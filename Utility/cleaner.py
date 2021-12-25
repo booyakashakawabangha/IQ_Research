@@ -1,3 +1,4 @@
+# Python programme which deletes all unnecessary columns.
 
 content = []
 with open("VIQT_data.csv") as file:
