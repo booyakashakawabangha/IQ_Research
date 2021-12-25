@@ -1,0 +1,171 @@
+---
+title: "IQ_research"
+author: "Taras Svystun, Dmytro Kalitin, Yaroslav Tsymbalista"
+date: "12/24/2021"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+# IQ prediction
+
+### Overview
+In this mini-research project we decided to discover the dependencies between IQ and human factors (gender, country, education, urban status). Also we were looking for links between some random questions (I prefer to be barefoot or I had an imaginary friend as a child) and IQ.
+
+
+### Libraries
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(ggpubr)
+library(e1071)
+library(fitdistrplus)
+```
+
+### Reading the data
+```{r}
+df <- read.csv(".\\cleaned.csv", sep = "\t")
+df <- df[df$age < 94,]
+df <- df[df$S27 > 0.5,]
+head(df, 10)
+```
+
+```{r}
+IQ <- df$score_full
+country <- df$country
+education <- df$education
+age <- df$age
+s2 <- df$S2
+s5 <- df$S5
+s26 <- df$S26
+s27 <- df$S27
+```
+
+#### What is s2, s5, s26, s27?
+That's random questions from the survey.
+S2	I avoid contacts with others.
+S5	I would be interested in getting my fortune told.
+S26	I always do the bare minimum I need to get by.
+S27	I like to play devils advocate.
+Respondents answered to them in range (1=Disagree, 5=Agree).
+Based on them we will show you unobvious dependency.
+
+### Quick data overview
+```{r}
+set.seed(2021)
+hist(IQ, breaks = 24, main = "IQ distribution", col = "666", ylab = "Number of people")
+```
+
+```{r}
+summary(age)
+hist(age, breaks = seq(12, 95, length = 24), main = "Age distribution", col = "666", ylab = "Number of people")
+```
+
+8 most popular countries in this data
+```{r}
+tail(sort(table(country)), 8)
+```
+
+### IQ distribution
+Now it's time to analyze the IQ distribution, especially whether it could be normalized.
+```{r warning=FALSE}
+set.seed(2021)
+plot(density(IQ), main = "IQ density and its normal approximation",
+     col="666", lwd=4, type="h", xlab="IQ")
+
+normal <- rnorm(12000, mean = mean(IQ), sd=sd(IQ))
+lines(density(normal),col="green", lwd=4)
+ggqqplot(IQ, color = "666")
+ks.test( IQ, normal, alternative = "t" )
+shapiro.test(head(IQ, 5000))
+skewness(IQ)
+```
+As we can see from the graphs, IQ fluctuates from the normal below -10 and after 47. It could be seen in 2 different ways.
+First one is the ecdf plot. We see that IQ distribution has heavy left tail, which means negative skewness. We proved that by calculating skew. So it drops quickly to the right hand side. It also has some values below -10, which is not observed for normal distribution.
+Second one is by using qq plot, which shows the correlation between a given sample and the normal distribution.
+Two tests approve our upper words. In both cases (Shapiro test and Kolmogorov-Smirnov test) the p_value is almost 0, so we cannot consider IQ as normally distributed data.
+
+### Skewness-kurtosis graph for the choice of distributions
+The function descdist() provides a skewness-kurtosis graph to help to choose the best candidate(s) to fit a given dataset. If we want to use it for discrete distributions we may use argument discrete=TRUE
+
+```{r}
+descdist(IQ)
+```
+We see that our IQ is close to Gamma distribution. Let's check this.
+```{r}
+IQ.positive <- IQ[IQ > 0]
+fit.gamma <- fitdist(IQ.positive, distr="gamma", method="mle")
+fit.gamma
+plot(fit.gamma)
+```
+As our testing shows us, MLE method works the best and IQ distribution is pretty close to Gamma distribution
+
+## Finding the correlations
+
+In order to search for any dependency we used the following methods: Pearson, Kendall, Spearman.
+
+### Pearson correlation test
+```{r}
+s2.cor1 <- cor.test(IQ, s2, method = "pearson")
+s5.cor1 <- cor.test(IQ, s5, method = "pearson")
+s26.cor1 <- cor.test(IQ, s26, method = "pearson")
+s27.cor1 <- cor.test(IQ, s27, method = "pearson")
+age.cor1 <- cor.test(IQ, age, method = "pearson")
+education.cor1 <- cor.test(IQ, education, method = "pearson")
+s2.cor1
+s5.cor1
+s26.cor1
+s27.cor1
+age.cor1
+education.cor1
+```
+As we can see, predicted question2 "I avoid contacts with others" has no correlation with IQ.
+But also some unexpected results were obtained.
+Question5 "I would be interested in getting my fortune told."
+Question26 "I always do the bare minimum I need to get by."
+Question27 "I like to play devils advocate."
+These 3 questions correlate with IQ.
+S27 has possitive cor => the more I go against society - the higher my IQ is.
+S5 and S26 have negative cor => the more I buy - the higher my IQ is. And the more I am interested in my fortune - the higher my IQ is.
+And 2 obvious correlations: age and education. Both have possitive cor =>
+the higher education or age - the higher IQ.
+
+### Kendall rank correlation test
+```{r}
+s27.cor2 <- cor.test(IQ, s27, method = "kendall")
+age.cor2 <- cor.test(IQ, age, method = "kendall")
+education.cor2 <- cor.test(IQ, education, method = "kendall")
+s27.cor2
+age.cor2
+education.cor2
+```
+As we can see, similar results to Pearson tests.
+
+### Spearman rank correlation coefficient
+
+```{r warning=FALSE}
+s27.cor2 <- cor.test(IQ, s27, method = "spearman")
+age.cor2 <- cor.test(IQ, age, method = "spearman")
+education.cor2 <- cor.test(IQ, education, method = "spearman")
+s27.cor2
+age.cor2
+education.cor2
+```
+
+### Regression analysis
+Now it's time to build some regressions.
+At the beginning we'll try to build regression model on devil's advocate question.
+One essential notion is how to measure the goodness of our model.
+Answer: by residuals or better to say determination coefficient.
+One measure very used to test how good is your model is the coefficient of determination
+or $R^2$. This measure is defined by the proportion of the total variability explained by the regression model.
+$R^2 = $Explained Variation of the model / Total variation of the model.
+```{r}
+age.linear <- lm(IQ~age)
+summary(age.linear)
+```
+
+```{r}
+plot(age.linear, col=c("green"), lwd = 5)
+```
