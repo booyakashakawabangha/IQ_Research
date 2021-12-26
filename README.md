@@ -3,6 +3,9 @@ That is my research on Vocabulary IQ done in R to find some correlations between
 
 In order, to see what I have done - check Research directory. The pdf version is the best displayable.
 
+Link to the original database and its description:
+https://www.kaggle.com/yamqwe/vocabulary-iq-test
+
 ## Data description
 This data was collected on-line through an interactive test titled "Vocabulary IQ Test" between July 2017 and March 2018. 
 
