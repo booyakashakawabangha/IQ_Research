@@ -9,8 +9,7 @@ Authors:
 * [Dmytro Kalitin](https://github.com/just1ce415)
 * [Yaroslav Tsymbalista](https://github.com/agravitybrain)
 
-Link to the original database and its description:
-https://www.kaggle.com/yamqwe/vocabulary-iq-test
+Link to the original database and its description is [here](https://www.kaggle.com/yamqwe/vocabulary-iq-test)
 
 ## Data description
 This data was collected on-line through an interactive test titled "Vocabulary IQ Test" between July 2017 and March 2018. 
