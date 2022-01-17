@@ -1,7 +1,13 @@
 # IQ_Research
-That is my research on Vocabulary IQ done in R to find some correlations between IQ and biography status or random facts.
+
+That is our research on Vocabulary IQ done in R to find some correlations between IQ and biography status or random facts.
 
 In order, to see what I have done - check Research directory. The pdf version is the best displayable.
+
+Authors:
+* [Taras Svystun](https://github.com/taras-svystun)
+* [Dmytro Kalitin](https://github.com/just1ce415)
+* [Yaroslav Tsymbalista](https://github.com/agravitybrain)
 
 Link to the original database and its description:
 https://www.kaggle.com/yamqwe/vocabulary-iq-test
