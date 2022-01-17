@@ -1,0 +1,272 @@
+---
+title: 'Vocabulary IQ test: research'
+author: "Taras Svystun, Dmytro Kalitin, Yaroslav Tsymbalista"
+date: "12/24/2021"
+output:
+  pdf_document: default
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+## Introduction
+
+### Topic and aim
+In this mini-research project we aim to discover the dependencies between IQ and some other characteristics (age, education). Also we are looking for links between IQ level and the degree of approval of some informative statements (e.g. "I prefer to be barefoot" or "I had an imaginary friend as a child").
+
+
+### Libraries
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(ggpubr)
+library(e1071)
+library(fitdistrplus)
+```
+
+### Reading the data
+```{r}
+df <- read.csv("cleaned.csv", sep = "\t")
+# Remove outliers
+df <- df[df$age < 94,]
+df <- df[df$S27 > 0.5,]
+```
+
+```{r}
+IQ <- df$score_full
+country <- df$country
+education <- df$education
+age <- df$age
+s2 <- df$S2
+s5 <- df$S5
+s26 <- df$S26
+s27 <- df$S27
+```
+
+### Data overview
+```{r}
+head(df, 10)
+```
+
+#### score_full - the total score of certain person for vocabulary IQ test. This test is not an ordianry IQ test. Here, people answer vocabular questions earning 1 point for right answer and loosing 0.35 for wrong.
+
+#### What is s2, s5, s26, s27?
+
+These are following statements:
+
+- S2	I avoid contacts with others.
+
+- S5	I would be interested in getting my fortune told.
+
+- S26	I always do the bare minimum I need to get by.
+
+- S27	I like to play devils advocate.
+
+Respondents answered to them in range (1=Disagree, 5=Agree).
+Based on them we will show you unobvious dependency.
+
+#### Graphical representation of data
+
+```{r echo=TRUE}
+set.seed(2021)
+hist(IQ,  breaks = 24, main = "IQ distribution", col = "666", ylab = "Number of people")
+```   
+
+```{r}
+summary(age)
+hist(age, breaks = seq(12, 95, length = 24), main = "Age distribution", col = "666", ylab = "Number of people")
+```
+
+8 most popular countries people from were surveyed in this sample
+```{r}
+tail(sort(table(country)), 8)
+```
+
+
+## IQ distribution
+Now it's time to analyze the IQ distribution. The first natural assumption is that IQ is normally distributed. Let us look at the densities.
+```{r warning=FALSE}
+set.seed(2021)
+plot(density(IQ), main = "IQ and corresponding normal densities", col="666", lwd=4, type="h", xlab="IQ")
+
+normal <- rnorm(12000, mean = mean(IQ), sd=sd(IQ))
+lines(density(normal),col="darkmagenta", lwd=4)
+
+skewness(IQ)
+```
+
+It doesn't seem like normal distribution. Let's deep into details and look at the quantile-quantile plot (the straight line is corresponding to quantiles of the normal distribution).
+
+```{r}
+ggqqplot(IQ, color = "666")
+```
+
+As we can see from the graphs, IQ fluctuates from the normal below -10 and after 40. It could be seen in 2 different ways.
+First one is the plot of densities. We see that IQ density has heavy left tail, which means negative skewness. We proved that by calculating skew. So it drops quickly to the right hand side, while normal distribution is symmetric (i.e. skewness is zero).
+
+Second one is by using qq plot, which shows the correlation between quantiles of given distribution.
+
+Finally, let us use Kolmogorov-Smirnov test and check the p-value (Note: here D is the max distance between the two CDFs; $H_0$ - cdf's are equal).
+
+```{r warning=FALSE}
+ks.test(IQ, normal, alternative = "t")
+```
+
+p-value is very small, so we sure we can reject the hypothesis that IQ distribution is the normal one.
+
+### Skewness-kurtosis graph to fit the distribution
+The function descdist() provides a skewness-kurtosis graph to help to choose the best candidate(s) to fit a given dataset. If we want to use it for discrete distributions we may use argument discrete=TRUE. We perform the fit on positive values of IQ score, we'll explain why latter.
+
+```{r}
+IQ.positive <- IQ + 15.76
+descdist(IQ.positive)
+```
+A dark-blue point on the graph represent the square of skewness and kurtosis of our observation.
+
+We see that it is close to that ones of Gamma and lognormal distributions. Let us check whether IQ distributed as Gamma or lognormal.
+
+However, both distributions assume only positive values, that's why we added the minimum value of our sample to each of the values.
+
+Function fitdist() will find for us maximum likelihood estimators for parameters to define distributions. There is the dataframe presented with estimates and standard errors of corresponding estimators. Note: PP (probability-probability) plot shows correlation between the values of theoretical (Gamma / lognormal) and emperical (IQ score) CDFs.
+
+```{r}
+fit.gamma <- fitdist(IQ.positive, distr="gamma", method="mle")
+fit.gamma
+plot(fit.gamma)
+```
+
+We see that our distribution of IQ test score doesn't fit quite well Gamma distribution, still it has some similarities.
+
+```{r}
+fit.lognorm <- fitdist(IQ.positive, distr="lnorm", method="mle")
+fit.lognorm
+plot(fit.lognorm)
+```
+
+And lognormal distribution doesn't fit event more to the observation.
+
+As a result, we can conclude that IQ test score distribution doesn't fit any known distribution, however, it seems to be a mixture of some distributions. One of them might be Gamma or lognormal distribution.
+
+## Finding the correlations
+
+In order to search for any dependency we used the following correlation tests: Pearson and Kendall rank correlation tests.
+
+### Pearson product-moment correlation test
+
+The Pearson correlation coefficient is calculated by the known formula: $Corr(X, Y) = \frac{Cov(X, Y)}{(\sigma_X \sigma_Y)}$. Denote this coefficient as $r$, then the following t-statistic $t = r\sqrt{\frac{n-2}{1-r^2}}$ has Student distribution with $n-2$ degrees of freedom. This t-value is used to test the hypothesis whether correlation coefficient is equal to zero (Note: $H_0$ - correlation equal 0).
+```{r}
+s2.cor1 <- cor.test(IQ, s2, method = "pearson")
+s5.cor1 <- cor.test(IQ, s5, method = "pearson")
+s26.cor1 <- cor.test(IQ, s26, method = "pearson")
+s27.cor1 <- cor.test(IQ, s27, method = "pearson")
+age.cor1 <- cor.test(IQ, age, method = "pearson")
+education.cor1 <- cor.test(IQ, education, method = "pearson")
+s2.cor1
+s5.cor1
+s26.cor1
+s27.cor1
+age.cor1
+education.cor1
+```
+As we can see, Statement2 "I avoid contacts with others" has no correlation with IQ - p-value is large enough and the coefficient $r$ is close to zero.
+
+But also some unexpected results were obtained.
+
+- Statement5 "I would be interested in getting my fortune told."
+
+- Statement26 "I always do the bare minimum I need to get by."
+
+- Statement27 "I like to play devil's advocate."
+
+The answers to these 3 statements correlate with IQ in some way (because p-value is very small)
+S27 has positive correlation: the more I think over statements I hear from various sources from different angles (even if I agree with to begin with) - the higher my IQ is. Well, pretty expected result.
+S5 and S26 have negative correlation: the less I am interested in getting my fortune told and the more I do my best - the higher my IQ is.
+And 2 expected positive correlations: age and education.
+
+### Kendall rank correlation tau
+
+Kendall rank correlation coefficient, just as Person one, assumes values from -1 to 1, interprets in the same way and has the following formula: $\tau = \frac{(number of concordant pairs) - (number of discordant pairs)}{C^{2}_{n}}$. Where concordant pairs are such $(x_i, y_j)$ and $(y_i, y_j)$, so that either $x_i > y_i$ and $x_j > y_j$ or $x_i < y_i$ and $x_j < y_j$; otherwise they are said to be discordant.
+
+Under the null hypothesis of independence of X and Y, the sampling distribution of $\tau$ has an expected value of zero. The precise distribution cannot be characterized in terms of common distributions, but may be calculated exactly for small samples; for larger samples, it is common to use an approximation to the normal distribution, with mean zero and variance $\frac{2(2n +5)}{9n(n-1)}$ (Note: $H_0$ - correlation equal 0).
+```{r}
+s27.cor2 <- cor.test(IQ, s27, method = "kendall")
+age.cor2 <- cor.test(IQ, age, method = "kendall")
+education.cor2 <- cor.test(IQ, education, method = "kendall")
+s27.cor2
+age.cor2
+education.cor2
+```
+
+As we can see, similar results to Pearson tests.
+
+### Additional Pearson and Kendall tests
+As we know, IQ correlates with education, S26 and S5. Its natural to assume that S26 and S5 correlates with level of education, lets check it.
+(Note: $H_0$ - correlation equal 0)
+```{r}
+s26.cor2ed_1 <- cor.test(education, s26, method = "pearson")
+s26.cor2ed_2 <- cor.test(education, s26, method = "kendall")
+
+s26.cor2ed_1
+s26.cor2ed_2
+```
+
+Both methods show similar results. We can reject zero hypothesis (correlation = 0) as p-value is very small and from confidence interval we see that correlation is less than 0 in Pearson and Kendall methods.
+
+```{r}
+ed.cor2s5_1 <- cor.test(s5, education, method = "pearson")
+ed.cor2s5_2 <- cor.test(s5, education, method = "kendall")
+
+ed.cor2s5_1
+ed.cor2s5_2
+```
+
+Here we have the same situation as in previous case.
+
+
+**Important note: both Pearson and Kendall correlation coefficients test linear correlation!**
+
+## Regression analysis
+Since we have found parameters which have largest correlation coefficients, we may build linear regression models to obtain more clear picture.
+
+One essential notion is how to measure the goodness of our model. Usually, for this purpose determination coefficient $r^2$ is used. This measure is defined by the proportion of the total variability explained by the regression model. $r^2$ = Explained Variation of the model / Total variation of the model.
+
+Let us start with age parameter.
+```{r}
+age.linear <- lm(IQ~age)
+plot(age, IQ, pch=20, xlim=c(0, 94), col="darkmagenta")
+abline(age.linear, col="darkblue")
+summary(age.linear)
+```
+
+The same for education.
+```{r}
+edu.linear <- lm(IQ~education)
+plot(education, IQ, pch=20, xlim=c(0,5))
+abline(edu.linear)
+summary(edu.linear)
+```
+
+Obviously, such small amount of x's doesn't give us clear picture, so there is no reason to build graphs for S5, S26 and S27. In general, these two models have poor graphical representation and are very bad for IQ prediction - both determination coefficients are near 0.1 which is very small. Moreover, the estimated variance of residuals is very large in both cases which is seen in the graphs. However, this models do state that age and education positively correlate with IQ - lines have positive slopes.
+
+Let us look at determination coefficients of s5, s26 and s27.
+
+```{r}
+s5.linear <- lm(IQ~s5)
+summary(s5.linear)
+
+s26.linear <- lm(IQ~s26)
+summary(s26.linear)
+
+s27.linear <- lm(IQ~s27)
+summary(s27.linear)
+```
+
+Determination coefficients are even smaller but we indeed see some linear correlation of this parameters with IQ - p-values of slope equal zero are very small in all cases.
+
+
+
+### Conclusion
+
+By doing this research, our team discovered that the most challenging part of work is data collection and decision-making when there is no exact answer for the question. One of our problems was that data was not representative as participants were not well distributed by age. Another problem was that not every answer was valid. Moreover, we noticed that used questions could not represent actual IQ as many people took maximum scores. Therefore this score does not show a difference between them. This could be a reason why we had so big residuals in linear regression models. Summing up, we cannot say that our results are pretty accurate. However, still, we learned a lot and made quite essential conclusions.
+
+After analyzing the data of IQ results, we can say that there is no evidence that the type of personality (extrovert or introvert) has any influence on IQ score. However, we found that the desire to do the bare minimum and rely on fortune is negatively correlated with education. Moreover, the level of education and the desire to think over the facts is positively correlated with IQ level. Therefore, we can conclude that IQ mostly depends on actions, not properties.
